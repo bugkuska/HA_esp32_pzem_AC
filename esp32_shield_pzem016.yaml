@@ -1,0 +1,143 @@
+esphome:
+  name: esp32-pzem016-powermon
+  friendly_name: esp32-pzem016-powermon
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+substitutions:
+  esp_name: esp32-pzem016-powermon
+
+# Enable logging
+logger:
+  # แนะนำปิด UART log เพื่อไม่ชนกับ UART0 ที่เอาไปใช้ Modbus
+  baud_rate: 0
+
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "RR3xi+1wcnqOzmi/6G2c/Aj2XJFhDgxw2iVpt59g770="
+
+ota:
+  - platform: esphome
+    password: "46bc39cf1ca05fe58a13d9449e0cdaea"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  manual_ip:
+    static_ip: 192.168.1.97
+    gateway: 192.168.1.1
+    subnet: 255.255.255.0
+    dns1: 192.168.1.1
+
+  on_connect:
+    then:
+      - switch.turn_on: gpio2
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Esp32-Pzem016-Powermon"
+    password: "0814111142"
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+
+captive_portal:
+
+# ========= ES30485 RS485 fixed pins =========
+# RXD -> RX0(GPIO3), TXD -> TX0(GPIO1)
+uart:
+  id: mod_bus
+  tx_pin: 1
+  rx_pin: 3
+  baud_rate: 9600
+  stop_bits: 1
+  parity: NONE
+  data_bits: 8
+
+modbus:
+  id: modbus_sensor
+  # RD ของ ES30485 ผูกกับ GPIO17 (D17) ใช้คุม DE/RE
+  flow_control_pin: 17
+  send_wait_time: 200ms
+
+binary_sensor:
+  - platform: status
+    name: "WiFi Status"
+    id: wifi_status
+
+switch:
+  - platform: gpio
+    id: gpio2
+    pin: 2
+    restore_mode: ALWAYS_OFF
+
+  - platform: template
+    name: "WiFi Connected Switch"
+    turn_on_action:
+      then:
+        - switch.turn_on: gpio2
+    lambda: |-
+      return id(wifi_status).state;
+
+sensor:
+  - platform: pzemac
+    id: pzemac_1
+    address: 0x1
+    modbus_id: modbus_sensor
+
+    current:
+      name: "Current"
+      id: cur
+    voltage:
+      name: "Voltage"
+      id: vol
+    power:
+      name: "Power"
+      id: power
+      state_class: measurement
+    frequency:
+      name: "Frequency"
+      id: freq
+    power_factor:
+      name: "Power Factor"
+      id: pow_factor
+    update_interval: 5s
+
+  - platform: total_daily_energy
+    name: "Total Daily Energy"
+    unit_of_measurement: kWh
+    power_id: power
+    accuracy_decimals: 2
+    filters:
+      - multiply: 0.001   # W -> kW แล้วค่อยสะสมเป็น kWh (แนวทางนี้ถูกต้อง)
+
+  - platform: uptime
+    name: "${esp_name} - Uptime"
+    icon: mdi:clock-outline
+    update_interval: 60s
+
+  - platform: wifi_signal
+    name: "${esp_name} - WiFi Signal dB"
+    id: wifi_signal_db
+    update_interval: 60s
+    entity_category: "diagnostic"
+
+  - platform: copy
+    source_id: wifi_signal_db
+    name: "${esp_name} - WiFi Signal Percent"
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+    unit_of_measurement: "Signal %"
+    entity_category: "diagnostic"
+    device_class: ""
+
+button:
+  - platform: template
+    name: Reset Energy ID1
+    on_press:
+      - pzemac.reset_energy: pzemac_1    
