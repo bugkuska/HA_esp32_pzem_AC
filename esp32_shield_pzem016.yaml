@@ -12,7 +12,6 @@ substitutions:
 
 # Enable logging
 logger:
-  # แนะนำปิด UART log เพื่อไม่ชนกับ UART0 ที่เอาไปใช้ Modbus
   baud_rate: 0
 
 
