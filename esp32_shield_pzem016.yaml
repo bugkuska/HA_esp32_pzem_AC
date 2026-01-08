@@ -117,6 +117,7 @@ sensor:
     name: "Total Daily Energy"
     unit_of_measurement: kWh
     power_id: power
+    restore: false
     accuracy_decimals: 2
     filters:
       - multiply: 0.001   # W -> kW แล้วค่อยสะสมเป็น kWh (แนวทางนี้ถูกต้อง)
