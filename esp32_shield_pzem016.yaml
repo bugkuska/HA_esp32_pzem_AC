@@ -9,6 +9,10 @@ esp32:
 
 substitutions:
   esp_name: esp32-pzem016-powermon
+  # Higher value gives lower watt readout
+  current_res: "0.00520"
+  # Lower value gives lower voltage readout
+  voltage_div: "750"
 
 # Enable logging
 logger:
